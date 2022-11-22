@@ -19,7 +19,7 @@ pub enum Status {
 impl<'r> FromParam<'r> for Status {
     type Error = &'r str;
 
-    fn from_param<'a>(param: &'a str) -> Result<Self, <Status as FromParam>::Error> {
+    fn from_param(param: &'_ str) -> Result<Self, <Status as FromParam>::Error> {
         match param.to_ascii_lowercase().as_str() {
             "ok" => Ok(Status::Ok),
             "error" => Ok(Status::Error),
@@ -53,7 +53,7 @@ pub async fn webhook(
         None => "".to_string(),
     };
     if rest_inner.len() > 1 {
-        message.push_str(&format!("\n\nExtra:\t{}", rest_inner).as_str());
+        message.push_str(format!("\n\nExtra:\t{}", rest_inner).as_str());
     }
 
     data.send_message(message).await;

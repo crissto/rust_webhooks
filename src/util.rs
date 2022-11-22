@@ -10,6 +10,9 @@ pub fn title_case(s: &str) -> String {
 }
 
 pub fn split_by_commas(string: &str) -> Vec<u64> {
-    let ids: Vec<&str> = string.split(",").skip_while(|&x| x.is_empty()).collect();
-    ids.into_iter().map(|x| x.parse::<u64>().unwrap()).collect()
+    string
+        .split(',')
+        .skip_while(|&x| x.is_empty())
+        .map(|x| x.parse::<u64>().unwrap())
+        .collect()
 }

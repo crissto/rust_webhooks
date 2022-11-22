@@ -46,21 +46,20 @@ impl TelegramBot {
         let bot = Bot::new(key);
         let recipients = TelegramBot::get_receivers(recipients);
         info!("Starting telegram bot");
-        return TelegramBot { recipients, bot };
+
+        TelegramBot { recipients, bot }
     }
 
     pub async fn send_message(&self, message: String) {
         for user in self.recipients.users.iter() {
-            match self.bot.send_message(*user, &message).await {
-                Err(e) => println!("{:?}", e),
-                _ => (),
+            if let Err(e) = self.bot.send_message(*user, &message).await {
+                println!("{:?}", e)
             }
         }
 
         for chat in self.recipients.groups.iter() {
-            match self.bot.send_message(*chat, &message).await {
-                Err(e) => println!("{:?}", e),
-                _ => (),
+            if let Err(e) = self.bot.send_message(*chat, &message).await {
+                println!("{:?}", e)
             }
         }
     }

@@ -1,23 +1,14 @@
-use std::sync::{Arc, Mutex};
+#[macro_use]
+extern crate rocket;
 
-use actix_web::{
-    get,
-    middleware::Logger,
-    web::{self, Data},
-    App, HttpResponse, HttpServer, Responder, Result,
-};
-
+use crate::routes::{health, webhook};
+use crate::telegram::TelegramBot;
 use dotenv::dotenv;
-use log::info;
-use serde::{Deserialize, Serialize};
-use telegram::TelegramBot;
-use teloxide::prelude::*;
+use serde::Deserialize;
 
+mod routes;
 mod telegram;
-
-struct AppState {
-    telegram_bot: Arc<Mutex<TelegramBot>>,
-}
+mod util;
 
 #[derive(Deserialize, Debug)]
 struct EnvCofig {
@@ -25,51 +16,32 @@ struct EnvCofig {
     telegram_users: String,
 }
 
-const PORT: i32 = 8080;
-
-#[actix_web::main]
-async fn main() -> std::io::Result<()> {
+#[launch]
+fn rocket() -> _ {
     dotenv().ok();
 
     pretty_env_logger::init();
-    info!("Starting bot");
     let envs = envy::from_env::<EnvCofig>()
         .expect("You have to provide both TELEGRAM_BOT_KEY and TELEGRAM_USER");
-
     let telegram_bot = TelegramBot::new(&envs.telegram_bot_key, envs.telegram_users);
-    let data = Data::new(AppState {
-        telegram_bot: Arc::new(Mutex::new(telegram_bot)),
-    });
 
-    info!("Server running at http://localhost:{}", PORT);
-    HttpServer::new(move || {
-        App::new()
-            .app_data(data.clone())
-            .wrap(Logger::default())
-            .wrap(Logger::new("%a %{User-Agent}i"))
-            .service(hello)
-            .service(health)
-    })
-    .bind(("127.0.0.1", 8080))?
-    .workers(2)
-    .run()
-    .await
+    rocket::build()
+        .manage(telegram_bot)
+        .mount("/", routes![webhook, health])
 }
 
-#[get("/")]
-async fn hello(data: Data<AppState>) -> impl Responder {
-    let mut bot = data.telegram_bot.lock().unwrap();
-    bot.send_message(String::from("TEST!")).await;
-    HttpResponse::Ok().body("Hello world!")
-}
+#[cfg(test)]
+mod test {
+    use super::rocket;
+    use super::routes::rocket_uri_macro_health;
+    use rocket::http::Status;
+    use rocket::local::blocking::Client;
 
-#[derive(Serialize)]
-struct HealthResponse {
-    ok: bool,
-}
-
-#[get("/health")]
-async fn health() -> Result<impl Responder> {
-    info!("Health is ok");
-    Ok(web::Json(HealthResponse { ok: true }))
+    #[test]
+    fn hello_world() {
+        let client = Client::tracked(rocket()).expect("valid rocket instance");
+        let response = client.get(uri!(health)).dispatch();
+        assert_eq!(response.status(), Status::Ok);
+        assert_eq!(response.into_string().unwrap(), "{ \"ok\": true }");
+    }
 }

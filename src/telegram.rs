@@ -1,9 +1,12 @@
+use log::info;
 use regex::Regex;
 use teloxide::{
     requests::Requester,
-    types::{ChatId, Recipient, UserId},
+    types::{ChatId, UserId},
     Bot,
 };
+
+use crate::util::split_by_commas;
 
 #[derive(Debug, Clone)]
 pub struct TelegramBot {
@@ -12,11 +15,6 @@ pub struct TelegramBot {
 }
 
 const USER_GROUPS_REGEX: &str = r"users:(?P<users>\S*);groups:(?P<groups>\S*)";
-
-fn split_by_commas(string: &str) -> Vec<u64> {
-    let ids: Vec<&str> = string.split(",").skip_while(|&x| x.is_empty()).collect();
-    ids.into_iter().map(|x| x.parse::<u64>().unwrap()).collect()
-}
 
 #[derive(Debug, Clone)]
 struct Receivers {
@@ -47,12 +45,11 @@ impl TelegramBot {
     pub fn new(key: &str, recipients: String) -> Self {
         let bot = Bot::new(key);
         let recipients = TelegramBot::get_receivers(recipients);
-        println!("{:?}", recipients);
+        info!("Starting telegram bot");
         return TelegramBot { recipients, bot };
     }
 
-    pub async fn send_message(&mut self, message: String) {
-        let recipients = self.recipients.users.append(&mut self.recipients.groups);
+    pub async fn send_message(&self, message: String) {
         for user in self.recipients.users.iter() {
             match self.bot.send_message(*user, &message).await {
                 Err(e) => println!("{:?}", e),
